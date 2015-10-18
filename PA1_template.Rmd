@@ -1,0 +1,105 @@
+---
+title: "Reproducible Research - Project Submission"
+author: "mpekari"
+date: "Sunday, Oct 18, 2015"
+output: html_document
+---
+
+This document is the project submission for Coursera.org Reproducible Research course.
+
+### Loading and preprocessing the data
+
+First we load the dataset, convert date column to Date, and remove NA's.
+```{r}
+data <- read.csv("activity.csv")
+data$date <- as.Date(data$date, "%Y-%m-%d")
+data.clean <- na.omit(data)
+```
+
+### Total number of steps taken per day
+
+Histogram for total number of steps per day.
+```{r message=FALSE}
+day.sum <- aggregate(steps ~ date, data = data.clean, FUN = sum)
+library(ggplot2)
+qplot(day.sum$date, weight=day.sum$steps, xlab="Date", ylab="Steps") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Mean of total number of steps per day.
+```{r}
+mean(day.sum$steps)
+```
+
+Median of total number of steps per day.
+```{r}
+median(day.sum$steps)
+```
+
+### Average daily activity pattern
+
+Time series plot for average number of steps taken, averaged across all days.
+```{r}
+interval.mean <- aggregate(steps ~ interval, data = data.clean, FUN = mean)
+ggplot(interval.mean, aes(x=interval, y=steps)) + geom_line()
+```
+
+Interval with highest number of average steps.
+```{r}
+interval.mean[which.max(interval.mean[,2]),1]
+```
+
+Total number of missing values.
+```{r}
+nrow(data[is.na(data$steps), ])
+```
+
+### Imputing missing values
+
+The missing values are imputed with average number of steps within the given interval, averaged across all days.  
+```{r}
+data.imp <- data
+for (i in 1:nrow(data.imp)) {
+    if (is.na(data.imp[i,1])) {
+        data.imp[i,1] <- interval.mean[match(data.imp[i,3], interval.mean[,1]),2]
+    }
+}
+head(data.imp)
+```
+
+Histogram with imputed values.
+```{r}
+day.sum.imp <- aggregate(steps ~ date, data = data.imp, FUN = sum)
+qplot(day.sum.imp$date, weight=day.sum.imp$steps, xlab="Date", ylab="Steps") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Comparing means with original and imputed datasets.
+```{r}
+average <- mean(day.sum$steps)
+average.imp <- mean(day.sum.imp$steps)
+c(average, average.imp)
+```
+The means are exactly the same. 
+
+Comparing medians with original and imputed datasets.
+```{r}
+median <- median(day.sum$steps)
+median.imp <- median(day.sum.imp$steps)
+c(median, median.imp)
+```
+The imputed dataset has higher median. 
+
+
+### Differences in activity patterns between weekdays and weekends
+
+Creating a new column for day type (weekday or weekend).
+```{r}
+data.imp$day.type <- "weekday"
+data.imp[weekdays(data.imp$date) %in% c("Saturday", "Sunday"),4] <- "weekend"
+data.imp$day.type <- as.factor(data.imp$day.type)
+```
+
+Time series plot for average steps per interval, averaged across all days, using the imputed dataset.
+```{r}
+interval.mean.daytype <- aggregate(steps ~ interval + day.type, data = data.imp, FUN = mean)
+ggplot(interval.mean.daytype, aes(x=interval, y=steps)) + geom_line() + facet_grid(day.type~.)
+```
